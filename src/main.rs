@@ -1,138 +1,15 @@
-use std::io::Write;
-
-use anyhow::Result;
 use clap::{arg, command, Command};
-use colored::Colorize;
-use regex::Regex;
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> anyhow::Result<()> {
   let matches = cli().get_matches();
   match matches.subcommand() {
     // List subcommand
-    Some(("ls", sub_matches)) => {
-      println!(
-        "Listing contents of {:?}",
-        sub_matches.get_one::<String>("PATH").expect("required")
-      );
-    }
+    Some(("ls", sub_matches)) => { s3cli::commands::list::run(sub_matches).await? }
     // Make Profile subcommand
-    Some(("make-profile", sub_matches)) => {
-
-      let dir_cert_path = s3cli::Credentials::get_certs_directory()?;
-      let cert_path = format!("{}/credentials", dir_cert_path);
-
-      // Check for file "~/.aws/credentials", if it wasn't exists ask user can we create it?
-      // If user said yes, create it and write config to it.
-      // If user said no, exit with error.
-      if false == std::path::Path::new(&cert_path).exists() {
-        print!("File {} not found, do you want to create it? [Y/n] ", cert_path.bold());
-        std::io::stdout().flush().unwrap();
-
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input)?;
-        if input.trim().to_lowercase() == "y" || input.trim() == "" {
-          s3cli::Credentials::ensure_certs_directory()?;
-        } else {
-          println!("{} Profile not created", "!!".yellow());
-          std::process::exit(1);
-        }
-      }
-
-      let name: Option<String>;
-      if sub_matches.get_one::<String>("name").is_none() {
-        let mut input = String::new();
-        if let Err(e) = read_til_regex(
-          Regex::new(r"^[a-zA-Z0-9-_]{2,}$").unwrap(),
-          &mut input,
-          "Enter profile name: ",
-          format!("{} Profile name is not valid, it should be at least 2 characters long and only contains letters, numbers, - and _", "!!".red()).as_str(),
-        ) {
-          eprintln!("Something went wrong: {:?}", e);
-          std::process::exit(1);
-        }
-        name = Some(input.trim().to_string());
-      } else {
-        name = sub_matches.get_one::<String>("name").cloned();
-      }
-
-      let access_key: Option<String>;
-      if sub_matches.get_one::<String>("access-key").is_none() {
-        let mut input = String::new();
-        if let Err(e) = read_til_regex(
-          Regex::new(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$").unwrap(),
-          &mut input,
-          "Enter access key: ",
-          format!("{} Access key is not valid, it should be valid UUID", "!!".red()).as_str(),
-        ) {
-          eprintln!("Something went wrong: {:?}", e);
-          std::process::exit(1);
-        }
-        access_key = Some(input.trim().to_string());
-      } else {
-        access_key = sub_matches.get_one::<String>("access-key").cloned();
-      }
-
-      let secret_key: Option<String>;
-      if sub_matches.get_one::<String>("secret-key").is_none() {
-        print!("Enter secret key: ");
-        std::io::stdout().flush().unwrap();
-        let input = rpassword::read_password().unwrap();
-        secret_key = Some(input.trim().to_string());
-      } else {
-        secret_key = sub_matches.get_one::<String>("secret-key").cloned();
-      }
-
-      let name = name.unwrap();
-      let access_key = access_key.unwrap();
-      let secret_key = secret_key.unwrap();
-
-      println!("Profile name: {:?}", name);
-      println!("Access key: {:?}", access_key);
-      println!("Secret key: {:?}", secret_key);
-
-      if s3cli::Credentials::profile_exists(&name)? {
-        print!("Profile {} already exists, do you want to overwrite it? [y/N] ", name.bold());
-        std::io::stdout().flush().unwrap();
-
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input)?;
-        if input.trim().to_lowercase() != "y" {
-          println!("{}: Profile {} was not updated", "!!".red(), name.bold());
-          std::process::exit(0);
-        }
-
-        s3cli::Credentials::profile_remove(name.as_str())?;
-      }
-
-      s3cli::Credentials {
-        access_key: access_key.to_string(),
-        secret_key: secret_key.to_string(),
-      }
-         .profile_save(name.as_str())?;
-    }
+    Some(("make-profile", sub_matches)) => { s3cli::commands::make_profile::run(sub_matches).await? }
     // If all subcommands are defined above, anything else is unreachable!()
     _ => unreachable!(),
-  }
-  Ok(())
-}
-
-fn read_til_regex(
-  reg: Regex,
-  input: &mut String,
-  ask: &str,
-  err: &str,
-) -> Result<()> {
-  print!("{}", ask);
-  std::io::stdout().flush().unwrap();
-  while let Ok(_) = std::io::stdin().read_line(input) {
-    println!("Got: {}", &input.trim());
-    if reg.is_match(&input.trim()) {
-      break;
-    }
-    println!("{}", err);
-    print!("{}", ask);
-    std::io::stdout().flush().unwrap();
   }
   Ok(())
 }
