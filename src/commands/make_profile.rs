@@ -1,5 +1,7 @@
 use std::io::Write;
 use colored::Colorize;
+use regex::Regex;
+use crate::read_til_regex;
 use crate::s3::credentials::Credentials;
 
 pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
@@ -71,7 +73,7 @@ pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
   let access_key = access_key.unwrap();
   let secret_key = secret_key.unwrap();
 
-  if s3cli::Credentials::profile_exists(&name)? {
+  if Credentials::profile_exists(&name)? {
     print!("Profile {} already exists, do you want to overwrite it? [y/N] ", name.bold());
     std::io::stdout().flush().unwrap();
 
@@ -82,15 +84,14 @@ pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
       std::process::exit(0);
     }
 
-    s3cli::Credentials::profile_remove(name.as_str())?;
+    Credentials::profile_remove(name.as_str())?;
   }
 
-  s3cli::Credentials {
-    access_key: access_key.to_string(),
-    secret_key: secret_key.to_string(),
+  Credentials {
+    access_key: access_key.to_owned(),
+    secret_key: secret_key.to_owned(),
   }
      .profile_save(name.as_str())?;
-
 
   Ok(())
 }

@@ -12,3 +12,6 @@ target/
 # Hide IDE craps
 .idea/
 .vscode/
+
+# Environment file
+.env

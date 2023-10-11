@@ -1,7 +1,10 @@
 use std::io::Write;
 
 use anyhow::{Error, Result};
+use clap::ArgMatches;
 use colored::Colorize;
+
+use crate::utils::validator;
 
 pub struct Credentials {
   pub access_key: String,
@@ -65,6 +68,32 @@ impl Credentials {
     }
 
     Ok(Self { access_key, secret_key })
+  }
+
+  pub fn parse_arg_matches(args: &ArgMatches) -> Result<Self> {
+
+    // There must be least a "profile" flag or "access-key" and "secret-key" flags
+    let profile_name = args.get_one::<String>("profile");
+
+    if let Some(profile_name) = profile_name {
+      return Self::from_file(&profile_name);
+    }
+
+    let access_key = args.get_one::<String>("access-key");
+    let secret_key = args.get_one::<String>("secret-key");
+
+    if let None = access_key {
+      return Err(Error::msg("Access key is required"));
+    }
+
+    if let None = secret_key {
+      return Err(Error::msg("Secret key is required"));
+    }
+
+    Ok(Credentials {
+      access_key: access_key.unwrap().clone(),
+      secret_key: secret_key.unwrap().clone(),
+    })
   }
 
   pub fn get_certs_directory() -> Result<String> {

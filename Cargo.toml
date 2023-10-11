@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 regex = { version = "1.9.6" }
-rand = { version = "0.8.5" }
 tokio = { version = "1.32.0", features = ["full"] }
 log = "0.4.20"
 simple_logger = "4.2.0"
@@ -18,3 +17,8 @@ http = "0.2.9"
 colored = "2.0.4"
 rpassword = "7.2.0"
 anyhow = "1.0"
+chrono = "0.4.31"
+human_bytes = { version = "0.4.3", default-features = false }
+
+[dev-dependencies]
+dotenv = "0.15.0"

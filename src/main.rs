@@ -6,6 +6,7 @@ async fn main() -> anyhow::Result<()> {
   match matches.subcommand() {
     // List subcommand
     Some(("ls", sub_matches)) => { s3cli::commands::list::run(sub_matches).await? }
+    Some(("common-prefix", sub_matches)) => { s3cli::commands::common_prefix::run(sub_matches).await? }
     // Make Profile subcommand
     Some(("make-profile", sub_matches)) => { s3cli::commands::make_profile::run(sub_matches).await? }
     // If all subcommands are defined above, anything else is unreachable!()
@@ -28,18 +29,30 @@ fn cli() -> Command {
      .subcommand_required(true)
      .arg_required_else_help(true)
      .allow_external_subcommands(true)
-     .author("Shahrad Elahi")
+     .author("Shahrad Elahi <https://github.com/shahradelahi>")
      // List subcommand
      .subcommand(
        Command::new("ls")
           .about("List all contents of a directory")
           .args(&connection_args)
-          .arg(arg!(<PATH> "Path to list").required(true))
+          .arg(arg!(<PATH> "Path to list").required(false))
           .arg_required_else_help(true)
           .args([
-            arg!(-r --recursive "Recursively display all files including subdirectories under the given path"),
-            arg!(-d --directory "Only show directories"),
-            arg!(--exclude <PATTERN> "Exclude contents matching the pattern"),
+            arg!(-r --recursive "recursively display all files including subdirectories under the given path"),
+            arg!(--delimiter <DELIMITER> "delimiter to use for path"),
+            arg!(-H --"human-readable" "print sizes in human readable format (e.g., 1K 234M 2G)"),
+            arg!(--exclude <PATTERN> "exclude contents matching the pattern"),
+          ])
+     )
+     // List the Common Prefixes subcommand
+     .subcommand(
+       Command::new("common-prefix")
+          .about("List all common prefixes of a directory")
+          .args(&connection_args)
+          .arg(arg!(<PREFIX> "Prefix to a path to list").required(true))
+          .arg_required_else_help(true)
+          .args([
+            arg!(--delimiter <DELIMITER> "Delimiter to use for path"),
           ])
      )
      // Make Profile subcommand
@@ -51,34 +64,5 @@ fn cli() -> Command {
             arg!(--"access-key" <ACCESS_KEY> "use access_key for connection to S3"),
             arg!(--"secret-key" <SECRET_KEY> "use security key for connection to S3"),
           ])
-     )
-     // Put subcommand
-     .subcommand(
-       Command::new("push")
-          .about("Pushes a file to the S3 bucket")
-          .args(&connection_args)
-          .arg(arg!(<FILE_PATH> "File to push"))
-          .arg(arg!(<BUCKET> "Bucket to push to"))
-          .arg_required_else_help(true)
-          .args([
-            arg!(-f --force "Force the push even if the remote file is newer"),
-            arg!(-r --recursive "Recursively push files matching the pattern"),
-            arg!(-e --exclude <PATTERN> "Exclude contents matching the pattern"),
-          ])
-     )
-     // Get subcommand
-     .subcommand(
-       Command::new("pull")
-          .about("Pulls a file from the S3 bucket")
-          .args(&connection_args)
-          .args([
-            arg!(-f --force "Force the pull even if the local file is newer"),
-            arg!(--"no-clobber" "Do not overwrite an existing file"),
-            arg!(-r --recursive "Recursively pull all the files including subdirectories under the given path"),
-            arg!(-e --exclude <PATTERN> "Exclude contents matching the pattern"),
-          ])
-          .arg(arg!(<file> "File to pull").required(true))
-          .arg(arg!(<bucket> "Bucket to pull from").required(true))
-          .arg_required_else_help(true)
      )
 }

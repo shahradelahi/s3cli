@@ -1,9 +1,9 @@
 use colored::Colorize;
 
+use crate::utc_datetime;
 use crate::s3::bucket::Bucket;
 use crate::s3::credentials::Credentials;
 use crate::s3::ParsedS3Url;
-use crate::utc_datetime;
 use crate::utils::validator;
 
 pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
@@ -67,23 +67,9 @@ pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
     delimiter,
   ).await?;
 
-  if result.contents.is_some() {
-    for object in result.contents.unwrap() {
-      // <last_modified>  <bytes>  <object_key>
-      // 2021-01-01T00:00:00.000Z  6651351  object-key
-      // 2021-01-01T00:00:00.000Z   60.9KB  object-key
-
-      let size = match sub_matches.get_one::<bool>("human-readable") {
-        Some(true) => human_bytes::human_bytes(object.size as f64),
-        _ => object.size.to_string()
-      };
-
-      println!(
-        "{} {} {}",
-        utc_datetime(object.last_modified.unwrap()),
-        size,
-        object.key.unwrap()
-      );
+  if result.common_prefixes.is_some() {
+    for prefix in result.common_prefixes.unwrap() {
+      println!("{}", prefix.prefix.unwrap());
     }
   }
 
