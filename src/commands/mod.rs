@@ -7,6 +7,7 @@ use crate::s3::profile::ProfileSet;
 use crate::utils::validator;
 
 pub mod common_prefix;
+pub mod du;
 pub mod list;
 pub mod make_profile;
 

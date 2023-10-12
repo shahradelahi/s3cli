@@ -34,26 +34,29 @@ pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
 
   let delimiter = args.parse_delimiter();
 
-  let result = bkt.ls(path, &delimiter).await?;
+  let result = bkt.ls(path, &delimiter).await;
 
-  if result.contents.is_some() {
-    for object in result.contents.unwrap() {
-      // <last_modified>  <bytes>  <object_key>
-      // 2021-01-01T00:00:00.000Z  6651351  object-key
-      // 2021-01-01T00:00:00.000Z   60.9KB  object-key
+  if let Err(e) = result {
+    eprintln!("{} {:?}", "error:".red(), e.to_string());
+    std::process::exit(1);
+  }
 
-      let size = match sub_matches.get_one::<bool>("human-readable") {
-        Some(true) => human_bytes::human_bytes(object.size as f64),
-        _ => object.size.to_string()
-      };
+  for object in result.unwrap() {
+    // <last_modified>  <bytes>  <object_key>
+    // 2021-01-01T00:00:00.000Z  6651351  object-key
+    // 2021-01-01T00:00:00.000Z   60.9KB  object-key
 
-      println!(
-        "{} {} {}",
-        utc_datetime(object.last_modified.unwrap()),
-        size,
-        object.key.unwrap()
-      );
-    }
+    let size = match sub_matches.get_one::<bool>("human-readable") {
+      Some(true) => human_bytes::human_bytes(object.size as f64),
+      _ => object.size.to_string()
+    };
+
+    println!(
+      "{} {} {}",
+      utc_datetime(object.last_modified.unwrap()),
+      size,
+      object.key.unwrap()
+    );
   }
 
   Ok(())

@@ -10,7 +10,7 @@ regex = { version = "1.9.6" }
 tokio = { version = "1.32.0", features = ["full"] }
 log = "0.4.20"
 simple_logger = "4.2.0"
-clap = { version = "4.4.6", features = ["cargo", "derive"] }
+clap = { version = "4.4.6", features = ["cargo"] }
 aws-config = "0.56.1"
 aws-sdk-s3 = "0.33.0"
 http = "0.2.9"
@@ -19,6 +19,8 @@ rpassword = "7.2.0"
 anyhow = "1.0"
 chrono = "0.4.31"
 human_bytes = { version = "0.4.3", default-features = false }
+indicatif = "0.17.7"
+console = "0.15.7"
 
 [dev-dependencies]
 dotenv = "0.15.0"
