@@ -1,11 +1,14 @@
+use std::collections::HashMap;
 use std::io::Write;
+
 use colored::Colorize;
 use regex::Regex;
+
 use crate::read_til_regex;
-use crate::s3::credentials::Credentials;
+use crate::s3::profile::{creds_directory, ensure_creds_directory, Profile, ProfileSet, Property};
 
 pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
-  let dir_cert_path = Credentials::get_certs_directory()?;
+  let dir_cert_path = creds_directory()?;
   let cert_path = format!("{}/credentials", dir_cert_path);
 
   // Check for file "~/.aws/credentials", if it wasn't exists ask user can we create it?
@@ -18,7 +21,7 @@ pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
     if input.trim().to_lowercase() == "y" || input.trim() == "" {
-      Credentials::ensure_certs_directory()?;
+      ensure_creds_directory()?;
     } else {
       println!("{} Profile not created", "!!".yellow());
       std::process::exit(1);
@@ -73,7 +76,9 @@ pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
   let access_key = access_key.unwrap();
   let secret_key = secret_key.unwrap();
 
-  if Credentials::profile_exists(&name)? {
+  let profiles = ProfileSet::from_file()?;
+
+  if profiles.exists(&name)? {
     print!("Profile {} already exists, do you want to overwrite it? [y/N] ", name.bold());
     std::io::stdout().flush().unwrap();
 
@@ -84,14 +89,27 @@ pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
       std::process::exit(0);
     }
 
-    Credentials::profile_remove(name.as_str())?;
+    profiles.remove(name.as_str())?;
   }
 
-  Credentials {
-    access_key: access_key.to_owned(),
-    secret_key: secret_key.to_owned(),
+  let mut properties: HashMap<String, Property> = HashMap::new();
+
+  properties.insert(
+    "aws_access_key_id".to_string(),
+    Property::new("aws_access_key_id".to_string(), access_key.clone()),
+  );
+
+  properties.insert(
+    "aws_secret_access_key".to_string(),
+    Property::new("aws_secret_access_key".to_string(), secret_key.clone()),
+  );
+
+  let new_profile = Profile::new(name.clone(), properties)?;
+
+  if let Err(e) = new_profile.save() {
+    eprintln!("{} {:?}", "error:".red(), e.to_string());
+    std::process::exit(1);
   }
-     .profile_save(name.as_str())?;
 
   Ok(())
 }

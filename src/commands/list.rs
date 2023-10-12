@@ -1,31 +1,13 @@
 use colored::Colorize;
 
-use crate::s3::bucket::Bucket;
-use crate::s3::credentials::Credentials;
+
 use crate::s3::ParsedS3Url;
 use crate::utc_datetime;
-use crate::utils::validator;
 
 pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
-  let endpoint = sub_matches.get_one::<String>("endpoint-url");
-  if endpoint.is_none() {
-    eprintln!("{} Endpoint is required", "error:".red());
-    std::process::exit(1);
-  }
+  let args = crate::commands::CmdArgs::from(sub_matches);
 
-  let endpoint = endpoint.unwrap();
-  if false == validator::is_url(endpoint) {
-    eprintln!("{} Endpoint is not valid URL", "error:".red());
-    std::process::exit(1);
-  }
-
-  let certs = Credentials::parse_arg_matches(&sub_matches)?;
-
-  let bkt = Bucket::new(
-    endpoint.to_owned(),
-    certs.access_key,
-    certs.secret_key,
-  );
+  let bkt = args.get_bucket();
 
   // if the path wasn't defined we're going to list the list of buckets
   let path = sub_matches.get_one::<String>("PATH");
@@ -50,22 +32,9 @@ pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
     std::process::exit(1);
   }
 
-  let delimiter = match sub_matches.get_one::<String>("delimiter") {
-    Some(d) => {
-      // check if a delimiter is a valid char
-      if d.len() > 1 {
-        eprintln!("{} Delimiter is not a valid char", "error:".red());
-        std::process::exit(1);
-      }
-      d.chars().next().unwrap()
-    }
-    _ => '/'
-  };
+  let delimiter = args.parse_delimiter();
 
-  let result = bkt.ls(
-    sub_matches.get_one::<String>("PATH").expect("required").to_string(),
-    delimiter,
-  ).await?;
+  let result = bkt.ls(path, &delimiter).await?;
 
   if result.contents.is_some() {
     for object in result.contents.unwrap() {

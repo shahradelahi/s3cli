@@ -44,7 +44,7 @@ impl Bucket {
     }
   }
 
-  fn get_list_object_request(client: &Client, url: String, delimiter: char) -> anyhow::Result<ListObjectsFluentBuilder> {
+  fn get_list_object_request(client: &Client, url: &String, delimiter: &char) -> anyhow::Result<ListObjectsFluentBuilder> {
     let parsed = ParsedS3Url::parse_from(url, delimiter).unwrap_or_else(|e| {
       eprintln!("{} {:?}", "error:".red(), e.to_string());
       std::process::exit(1);
@@ -58,7 +58,7 @@ impl Bucket {
     )
   }
 
-  pub async fn ls(&self, url: String, delimiter: char) -> Result<ListObjectsOutput, S3Error> {
+  pub async fn ls(&self, url: &String, delimiter: &char) -> Result<ListObjectsOutput, S3Error> {
     let request = Self::get_list_object_request(&self.client, url, delimiter)
        .unwrap();
 
@@ -73,7 +73,7 @@ impl Bucket {
     Ok(output)
   }
 
-  pub async fn prefixes(&self, url: String, delimiter: char) -> Result<ListObjectsOutput, S3Error> {
+  pub async fn prefixes(&self, url: &String, delimiter: &char) -> Result<ListObjectsOutput, S3Error> {
     let request = Self::get_list_object_request(&self.client, url, delimiter)
        .unwrap()
        .delimiter(delimiter.to_string());
@@ -89,7 +89,7 @@ impl Bucket {
     Ok(output)
   }
 
-  pub async fn du(&self, url: String, delimiter: char) -> Result<(), S3Error> {
+  pub async fn du(&self, url: &String, delimiter: &char) -> Result<(), S3Error> {
     Ok(())
   }
 
@@ -109,15 +109,15 @@ impl Bucket {
     Ok(output)
   }
 
-  pub async fn mv(&self, from: String, to: String) -> Result<(), S3Error> {
+  pub async fn mv(&self, from: &String, to: &String) -> Result<(), S3Error> {
     Ok(())
   }
 
-  pub async fn rm(&self, path: String) -> Result<(), S3Error> {
+  pub async fn rm(&self, path: &String) -> Result<(), S3Error> {
     Ok(())
   }
 
-  pub async fn cp(&self, from: String, to: String) -> Result<(), S3Error> {
+  pub async fn cp(&self, from: &String, to: &String) -> Result<(), S3Error> {
     // 1. One of (from, to) must be S3Url
     let least_one_s3 = vec![from, to].iter().map(|path| {});
 
@@ -144,7 +144,7 @@ mod s3_tests {
     let bucket = setup();
 
     let result = bucket
-       .ls(String::from("s3://staticresources/"), '/')
+       .ls(&String::from("s3://staticresources/"), &'/')
        .await
        .unwrap();
 

@@ -4,6 +4,7 @@ use regex::Regex;
 
 pub mod bucket;
 pub mod credentials;
+pub mod profile;
 
 #[derive(PartialEq, Debug)]
 pub struct ListObjectsResult {
@@ -25,16 +26,15 @@ impl ParsedS3Url {
     Regex::new(r"^s3://([0-9a-zA-Z!\-_.*'()]+/?)*").unwrap()
   }
 
-  pub fn parse_from(url: String, delimiter: char) -> anyhow::Result<ParsedS3Url> {
+  pub fn parse_from(url: &String, delimiter: &char) -> anyhow::Result<ParsedS3Url> {
     if false == Self::is_s3url(url.as_str()) {
       return Err(anyhow::Error::msg("Not a valid S3 URL"));
     }
 
     let binding = url.to_owned().replace("s3://", "");
-    drop(url);
 
     let parts = binding
-       .split(delimiter)
+       .split(*delimiter)
        .collect::<Vec<&str>>();
 
     let bucket_name = parts.get(0);
@@ -76,15 +76,7 @@ impl ParsedS3Url {
   }
 }
 
-#[macro_export]
-macro_rules! parse_s3url {
-  ($url:expr) => {
-    ParsedS3Url::parse_from($url, '/').unwrap_or_else(|e| {
-      eprintln!("{} {:?}", "error:".red(), e.to_string());
-      std::process::exit(1);
-    })
-  };
-}
+
 
 #[cfg(test)]
 mod tests_parsed_3url {
@@ -92,17 +84,18 @@ mod tests_parsed_3url {
 
   #[test]
   fn test_can_parse() {
-    let parsed = ParsedS3Url::parse_from(String::from("s3://servicelogs/Documents/myfile.txt"), '/')
+    let parsed = ParsedS3Url::parse_from(&String::from("s3://servicelogs/Documents/myfile.txt"), &'/')
        .expect("failed to parse s3url");
     assert_eq!(parsed.bucket_name, "servicelogs");
     assert_eq!(parsed.segments, vec!["Documents", "myfile.txt"]);
 
-    let parsed = ParsedS3Url::parse_from(String::from("s3://servicelogs"), '/')
+    let parsed = ParsedS3Url::parse_from(&String::from("s3://servicelogs"), &'/')
        .expect("failed to parse s3url");
     assert_eq!(parsed.bucket_name, "servicelogs");
     assert_eq!(parsed.segments, vec![] as Vec<String>);
 
-    let parsed = parse_s3url!("s3://my.great_photos-2014/jan/myvacation.jpg".to_string());
+    let parsed = ParsedS3Url::parse_from(&String::from("s3://my.great_photos-2014/jan/myvacation.jpg"), &'/')
+       .expect("failed to parse s3url");
     assert_eq!(parsed.bucket_name, "my.great_photos-2014");
     assert_eq!(parsed.segments, vec!["jan", "myvacation.jpg"]);
   }
