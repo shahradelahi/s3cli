@@ -10,6 +10,7 @@ use console::Emoji;
 use indicatif::{HumanDuration, ProgressBar, ProgressStyle};
 use tokio::time::Instant;
 
+use crate::commands::copy::CopyOpts;
 use crate::commands::du::DuOpts;
 use crate::commands::list::ListOpts;
 use crate::error::S3Error;
@@ -75,6 +76,7 @@ impl Bucket {
     }
   }
 
+  /// Lists contents of a S3 bucket
   pub async fn ls(&self, opts: ListOpts) -> anyhow::Result<Vec<aws_sdk_s3::types::Object>> {
     let mut next_token: Option<String> = None;
     let mut objects: Vec<aws_sdk_s3::types::Object> = Vec::new();
@@ -193,6 +195,11 @@ impl Bucket {
     Ok(output)
   }
 
+  /// Copies from content from a bucket to a destination
+  pub async fn cp(&self, opts: CopyOpts) -> anyhow::Result<()> {
+    Ok(())
+  }
+
   pub async fn mv(&self, from: &String, to: &String) -> Result<(), S3Error> {
     Ok(())
   }
@@ -201,14 +208,6 @@ impl Bucket {
     Ok(())
   }
 
-  pub async fn cp(&self, from: &String, to: &String) -> Result<(), S3Error> {
-    // 1. One of (from, to) must be S3Url
-    let least_one_s3 = vec![from, to].iter().map(|path| {});
-
-    // 2.
-
-    Ok(())
-  }
 }
 
 

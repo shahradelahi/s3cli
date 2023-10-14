@@ -6,10 +6,13 @@ async fn main() -> anyhow::Result<()> {
   match matches.subcommand() {
     // List subcommand
     Some(("ls", sub_matches)) => { s3cli::commands::list::run(sub_matches).await? }
-    Some(("du", sub_matches)) => { s3cli::commands::du::run(sub_matches).await? }
     Some(("common-prefix", sub_matches)) => { s3cli::commands::common_prefix::run(sub_matches).await? }
+    // Du(Disk Usage) subcommand
+    Some(("du", sub_matches)) => { s3cli::commands::du::run(sub_matches).await? }
     // Make Profile subcommand
     Some(("make-profile", sub_matches)) => { s3cli::commands::make_profile::run(sub_matches).await? }
+    // Copy subcommand
+    Some(("cp", sub_matches)) => { s3cli::commands::copy::run(sub_matches).await? }
     // If all subcommands are defined above, anything else is unreachable!()
     _ => unreachable!(),
   }
@@ -78,6 +81,21 @@ fn cli() -> Command {
             arg!(--delimiter <DELIMITER> "delimiter to split the path"),
             arg!(--total "show total size of the path"),
             arg!(-H --"human-readable" "print sizes in human readable format (e.g., 1K 234M 2G)"),
+            arg!(--progress "show progress bar"),
+            arg!(--verbose "show verbose output"),
+          ])
+     )
+     // Copy subcommand
+     .subcommand(
+       Command::new("cp")
+          .about("Copy a file or directory")
+          .args(&connection_args)
+          .args([
+            arg!(<FROM> "source path").required(true),
+            arg!(<TO> "destination path").required(true),
+            arg!(-r --recursive "recursively copy all files including subdirectories under the given path"),
+            arg!(--delimiter <DELIMITER> "delimiter to split the path").required_if_eq("recursive", "true"),
+            arg!(--exclude <PATTERN> "exclude contents matching the pattern"),
             arg!(--progress "show progress bar"),
             arg!(--verbose "show verbose output"),
           ])
