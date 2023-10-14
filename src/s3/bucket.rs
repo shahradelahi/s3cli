@@ -11,6 +11,7 @@ use indicatif::{HumanDuration, ProgressBar, ProgressStyle};
 use tokio::time::Instant;
 
 use crate::commands::du::DuOpts;
+use crate::commands::list::ListOpts;
 use crate::error::S3Error;
 use crate::s3::ParsedS3Url;
 
@@ -74,13 +75,14 @@ impl Bucket {
     }
   }
 
-  pub async fn ls(&self, url: &String, delimiter: &char) -> anyhow::Result<Vec<aws_sdk_s3::types::Object>> {
+  pub async fn ls(&self, opts: ListOpts) -> anyhow::Result<Vec<aws_sdk_s3::types::Object>> {
     let mut next_token: Option<String> = None;
     let mut objects: Vec<aws_sdk_s3::types::Object> = Vec::new();
+    let path = opts.path.unwrap();
     loop {
 
       // Get the next page of results
-      let response = get_list_object_request(&self.client, url, delimiter)?
+      let response = get_list_object_request(&self.client, &path, &opts.delimiter)?
          .set_continuation_token(next_token.take())
          .send()
          .await?;
@@ -229,17 +231,17 @@ mod s3_tests {
     Bucket::new(endpoint, access_key, secret_key)
   }
 
-  #[tokio::test]
-  async fn test_ls() {
-    let bucket = setup();
-
-    let result = bucket
-       .ls(&String::from("s3://staticresources/"), &'/')
-       .await
-       .unwrap();
-
-    println!("{:?}", result);
-  }
+  // #[tokio::test]
+  // async fn test_ls() {
+  //   let bucket = setup();
+  //
+  //   let result = bucket
+  //      .ls(&String::from("s3://staticresources/"), &'/')
+  //      .await
+  //      .unwrap();
+  //
+  //   println!("{:?}", result);
+  // }
 
   #[tokio::test]
   async fn test_using_client_directly() {

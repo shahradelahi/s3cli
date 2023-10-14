@@ -1,17 +1,20 @@
+use clap::ArgMatches;
 use colored::Colorize;
+use regex::Regex;
 
-
-use crate::s3::ParsedS3Url;
+use crate::commands::CommandOpts;
 use crate::utc_datetime;
 
 pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
-  let args = crate::commands::CmdArgs::from(sub_matches);
+  let bkt = crate::commands::CmdArgs::from(sub_matches).get_bucket();
+  let opts = <ListOpts as CommandOpts>::from(&sub_matches);
 
-  let bkt = args.get_bucket();
+  if opts.verbose {
+    println!("{:?}", opts);
+  }
 
   // if the path wasn't defined we're going to list the list of buckets
-  let path = sub_matches.get_one::<String>("PATH");
-  if path.is_none() {
+  if opts.path.is_none() {
     let result = bkt.bkt_ls().await?;
     for bucket in result.buckets.unwrap() {
       // <creation_date> <bucket_name>
@@ -25,16 +28,7 @@ pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
     return Ok(());
   }
 
-  // otherwise check if the path is a valid s3 url
-  let path = path.unwrap();
-  if false == ParsedS3Url::is_s3url(path) {
-    eprintln!("{} Path is not a valid S3 URL", "error:".red());
-    std::process::exit(1);
-  }
-
-  let delimiter = args.parse_delimiter();
-
-  let result = bkt.ls(path, &delimiter).await;
+  let result = bkt.ls(opts.clone()).await;
 
   if let Err(e) = result {
     eprintln!("{} {:?}", "error:".red(), e.to_string());
@@ -60,4 +54,48 @@ pub async fn run(sub_matches: &clap::ArgMatches) -> anyhow::Result<()> {
   }
 
   Ok(())
+}
+
+
+#[derive(Clone, Debug)]
+pub struct ListOpts {
+  pub verbose: bool,
+  pub recursive: bool,
+  pub human_readable: bool,
+  pub delimiter: char,
+  pub path: Option<String>,
+  pub exclude: Vec<Regex>,
+}
+
+impl CommandOpts for ListOpts {
+  fn from(sub_matches: &ArgMatches) -> Self {
+    let verbose = sub_matches.get_one::<bool>("verbose")
+       .unwrap_or_else(|| &false)
+       .clone();
+
+    let recursive = sub_matches.get_one::<bool>("recursive")
+       .unwrap_or_else(|| &false)
+       .clone();
+
+    let human_readable = sub_matches.get_one::<bool>("human-readable")
+       .unwrap_or_else(|| &true)
+       .clone();
+
+    let args = crate::commands::CmdArgs::from(sub_matches);
+
+    let delimiter = args.parse_delimiter();
+
+    let path = args.parse_prefix("PATH", true);
+
+    let exclude = args.parse_exclude();
+
+    Self {
+      verbose,
+      recursive,
+      human_readable,
+      delimiter,
+      path,
+      exclude,
+    }
+  }
 }

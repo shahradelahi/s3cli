@@ -1,8 +1,10 @@
 use clap::ArgMatches;
 use colored::Colorize;
+use regex::Regex;
 
 use crate::s3::bucket::Bucket;
 use crate::s3::credentials::Credentials;
+use crate::s3::ParsedS3Url;
 use crate::s3::profile::ProfileSet;
 use crate::utils::validator;
 
@@ -92,4 +94,50 @@ impl CmdArgs {
       _ => '/'
     }
   }
+
+  pub fn parse_prefix(&self, id: &str, optional: bool) -> Option<String> {
+    let prefix = self.args.get_one::<String>(id);
+    if prefix.is_none() {
+      if optional {
+        return None;
+      }
+      eprintln!("{} Prefix is required", "error:".red());
+      std::process::exit(1);
+    }
+
+    let prefix = prefix.unwrap();
+    if false == ParsedS3Url::is_s3url(prefix) {
+      eprintln!("{} Prefix must be a valid s3 url", "error:".red());
+      std::process::exit(1);
+    }
+
+    Some(prefix.clone())
+  }
+
+  pub fn parse_exclude(&self) -> Vec<Regex> {
+    // The exclude expression must be a valid Regex
+    let exclude = self.args.get_many("exclude");
+    if exclude.is_none() {
+      let no_no_args: Vec<Regex> = Vec::new();
+      return no_no_args;
+    }
+
+    let exclude = exclude.unwrap().copied();
+    let mut exclude_regexes: Vec<Regex> = Vec::new();
+    for exp in exclude {
+      match Regex::new(exp) {
+        Ok(r) => exclude_regexes.push(r),
+        Err(e) => {
+          eprintln!("{} {:?}", "error:".red(), e.to_string());
+          std::process::exit(1);
+        }
+      }
+    }
+
+    exclude_regexes
+  }
+}
+
+pub trait CommandOpts {
+  fn from(sub_matches: &clap::ArgMatches) -> Self;
 }
