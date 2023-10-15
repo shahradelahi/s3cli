@@ -1,3 +1,4 @@
+use std::io::Read;
 use std::time::SystemTime;
 
 use aws_sdk_s3::{Client, Config};
@@ -15,6 +16,8 @@ use crate::commands::du::DuOpts;
 use crate::commands::list::ListOpts;
 use crate::error::S3Error;
 use crate::s3::ParsedS3Url;
+
+pub mod output;
 
 static LOOKING_GLASS: Emoji<'_, '_> = Emoji("🔍  ", "");
 static SPARKLE: Emoji<'_, '_> = Emoji("✨ ", ":-)");
@@ -173,14 +176,13 @@ impl Bucket {
       println!("{} Done in {}", SPARKLE, HumanDuration(started.elapsed()));
     }
 
-    if *&opts.verbose {
-    }
+    if *&opts.verbose {}
 
     Ok(total_size_bytes)
   }
 
   /// Lists all buckets in an S3 account.
-  pub async fn bkt_ls(&self) -> Result<ListBucketsOutput, S3Error> {
+  pub async fn bkt_ls(&self) -> anyhow::Result<ListBucketsOutput> {
     let request = self.client
        .list_buckets();
 
@@ -207,16 +209,8 @@ impl Bucket {
   pub async fn rm(&self, path: &String) -> Result<(), S3Error> {
     Ok(())
   }
-
 }
 
-
-struct DuOutput {
-  pub total_size_bytes: usize,
-  pub total_size_human: String,
-  pub total_objects: usize,
-  pub objects: Vec<aws_sdk_s3::types::Object>,
-}
 
 #[cfg(test)]
 mod s3_tests {

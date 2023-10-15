@@ -1,10 +1,11 @@
 use std::io::Write;
-use chrono::TimeZone;
 
+use chrono::TimeZone;
 use regex::Regex;
 
 pub mod commands;
 pub mod error;
+pub mod fs;
 pub mod s3;
 pub mod utils;
 

@@ -21,6 +21,7 @@ chrono = "0.4.31"
 human_bytes = { version = "0.4.3", default-features = false }
 indicatif = "0.17.7"
 console = "0.15.7"
+sha256 = "1.4.0"
 
 [dev-dependencies]
 dotenv = "0.15.0"
