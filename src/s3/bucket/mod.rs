@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::Read;
 use std::time::SystemTime;
 
@@ -15,6 +16,7 @@ use crate::commands::copy::CopyOpts;
 use crate::commands::du::DuOpts;
 use crate::commands::list::ListOpts;
 use crate::error::S3Error;
+use crate::s3::content::{S3Directory, S3File};
 use crate::s3::ParsedS3Url;
 
 pub mod output;
@@ -80,7 +82,7 @@ impl Bucket {
   }
 
   /// Lists contents of a S3 bucket
-  pub async fn ls(&self, opts: ListOpts) -> anyhow::Result<Vec<aws_sdk_s3::types::Object>> {
+  pub async fn ls(&self, opts: ListOpts) -> anyhow::Result<ListOutput> {
     let mut next_token: Option<String> = None;
     let mut objects: Vec<aws_sdk_s3::types::Object> = Vec::new();
     let path = opts.path.unwrap();
@@ -105,7 +107,15 @@ impl Bucket {
         break;
       }
     }
-    Ok(objects)
+
+    let result = filter_objects_by_path(
+      objects,
+      &path,
+      opts.delimiter,
+      opts.recursive,
+    );
+
+    Ok(result?)
   }
 
   pub async fn prefixes(&self, url: &String, delimiter: &char) -> Result<ListObjectsV2Output, S3Error> {
@@ -211,34 +221,144 @@ impl Bucket {
   }
 }
 
+/// Receives a list of object and a path and returns a list of objects that matches the path
+fn filter_objects_by_path(
+  objects: Vec<aws_sdk_s3::types::Object>,
+  path: &str,
+  delimiter: char,
+  recursive: bool,
+) -> anyhow::Result<ListOutput> {
+  let parsed = ParsedS3Url::parse_from(&path.to_string(), &delimiter);
+  if let Err(e) = parsed {
+    return Err(anyhow::anyhow!("{} {:?}", "error:".red(), e.to_string()));
+  };
+
+  let prefix = ensure_trailing_slash(
+    &path.to_string()
+       .replace("s3://", "")
+       .replace(parsed.as_ref().unwrap().bucket_name.as_str(), "")
+  );
+
+  let mut output = ListOutput::new();
+
+  for object in objects {
+    let mut no_prefixed_key = ensure_surrounding_slashes(object.key.as_ref().unwrap());
+
+    if prefix != "/" {
+      no_prefixed_key = no_prefixed_key.replace(&prefix, "");
+    }
+
+    let key_segments = no_prefixed_key
+       .split(&delimiter.to_string())
+       .filter(|&x| !x.is_empty())
+       .collect::<Vec<&str>>();
+
+    let first_segment = key_segments.get(0);
+
+    if first_segment.is_some() {
+      let key = first_segment.unwrap();
+      // if there is not more one segments it means we're same level as the prefix
+      // otherwise we're deeper than the prefix, use recursive flag to decide if we should include it
+      if key_segments.len() == 1 {
+        output.add_object(object.clone());
+        continue;
+      }
+
+      if false == recursive {
+        // it's a directory, in the last statement we collecting objects at same level of the prefix
+        let directory = S3Directory::new(key.to_string());
+        let directory = output.get_or_insert_directory(directory);
+        let file = S3File {
+          last_modified: object.last_modified.unwrap(),
+          size: object.size.clone(),
+          key: object.key.clone().unwrap(),
+        };
+        directory.add_file(file);
+        continue;
+      }
+
+      // on recursive mode we're checking if key of object starts with prefix
+      if prefix.is_empty() || prefix == "/" {
+        output.add_object(object.clone());
+      }
+    }
+  }
+
+  Ok(output)
+}
+
+#[derive(Debug)]
+pub struct ListOutput {
+  pub objects: Vec<aws_sdk_s3::types::Object>,
+  pub directories: HashMap<String, S3Directory>,
+}
+
+impl ListOutput {
+  fn new() -> Self {
+    Self {
+      objects: Vec::new(),
+      directories: HashMap::new(),
+    }
+  }
+
+  fn add_object(&mut self, object: aws_sdk_s3::types::Object) {
+    // first checking if not already exists
+    let mut found = false;
+    for obj in self.objects.iter_mut() {
+      if obj.key == object.key {
+        found = true;
+        break;
+      }
+    }
+    // otherwise add it
+    if !found {
+      self.objects.push(object);
+    }
+  }
+
+  fn get_or_insert_directory(&mut self, directory: S3Directory) -> &mut S3Directory {
+    let dir = self.directories.entry(directory.name.clone()).or_insert(directory);
+    dir
+  }
+}
+
+/// Ensures that a path ends with a trailing slash
+fn ensure_trailing_slash(path: &String) -> String {
+  if !path.ends_with("/") {
+    return format!("{}/", path);
+  }
+  path.to_string()
+}
+
+/// Ensure surrounding slashes
+fn ensure_surrounding_slashes(path: &String) -> String {
+  if !path.starts_with("/") {
+    return format!("/{}", path);
+  }
+  if !path.ends_with("/") {
+    return format!("{}/", path);
+  }
+  path.to_string()
+}
 
 #[cfg(test)]
 mod s3_tests {
   use super::*;
 
-  fn setup() -> Bucket {
+  fn setup(large: bool) -> Bucket {
     dotenv::dotenv().ok();
-    let endpoint = std::env::var("ENDPOINT_URL").unwrap();
+    let endpoint = match large {
+      true => std::env::var("ENDPOINT_URL"),
+      false => std::env::var("SMALL_ENDPOINT_URL")
+    }.unwrap();
     let access_key = std::env::var("ACCESS_KEY").unwrap();
     let secret_key = std::env::var("SECRET_KEY").unwrap();
     Bucket::new(endpoint, access_key, secret_key)
   }
 
-  // #[tokio::test]
-  // async fn test_ls() {
-  //   let bucket = setup();
-  //
-  //   let result = bucket
-  //      .ls(&String::from("s3://staticresources/"), &'/')
-  //      .await
-  //      .unwrap();
-  //
-  //   println!("{:?}", result);
-  // }
-
   #[tokio::test]
   async fn test_using_client_directly() {
-    let bucket = setup();
+    let bucket = setup(true);
 
     let buckets = bucket.client
        .list_buckets()
@@ -246,6 +366,29 @@ mod s3_tests {
        .await;
 
     println!("{:?}", buckets);
+  }
+
+  #[tokio::test]
+  async fn test_ls() {
+    let bucket = setup(false);
+
+    let opts = ListOpts {
+      recursive: true,
+      show_progress: false,
+      path: Some(String::from("s3://servicelogs/")),
+      delimiter: '/',
+      exclude: Vec::new(),
+      human_readable: true,
+      verbose: true,
+    };
+
+    let result = bucket.ls(opts.clone()).await;
+
+    assert!(result.is_ok(), "{}", format!("ls failed: {:?}", &result.err()));
+
+    let result = result.unwrap();
+
+    println!("{:?}", result);
   }
 }
 

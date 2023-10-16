@@ -46,6 +46,7 @@ fn cli() -> Command {
             arg!(--delimiter <DELIMITER> "delimiter to split the path"),
             arg!(-H --"human-readable" "print sizes in human readable format (e.g., 1K 234M 2G)"),
             arg!(--exclude <PATTERN> "exclude contents matching the pattern"),
+            arg!(--progress "show progress bar"),
             arg!(--verbose "show verbose output"),
           ])
      )
@@ -58,6 +59,7 @@ fn cli() -> Command {
           .arg_required_else_help(true)
           .args([
             arg!(--delimiter <DELIMITER> "delimiter to split the path"),
+            arg!(--progress "show progress bar"),
           ])
      )
      // Make Profile subcommand
