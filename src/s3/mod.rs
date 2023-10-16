@@ -3,6 +3,7 @@
 use regex::Regex;
 
 pub mod bucket;
+pub mod content;
 pub mod credentials;
 pub mod profile;
 
